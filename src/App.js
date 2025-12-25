@@ -1,25 +1,274 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useEffect } from 'react';
+import { ShoppingCart, Plus, X } from 'lucide-react';
 
-function App() {
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
+};
+
+let firebaseApp = null;
+let firestore = null;
+
+const initFirebase = async () => {
+  if (firebaseApp) return firestore;
+  
+  try {
+    // Load Firebase from Cloudflare CDN (allowed by CSP)
+    await new Promise((resolve, reject) => {
+      const script1 = document.createElement('script');
+      script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.min.js';
+      script1.onload = () => {
+        const script2 = document.createElement('script');
+        script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-firestore-compat.min.js';
+        script2.onload = resolve;
+        script2.onerror = reject;
+        document.head.appendChild(script2);
+      };
+      script1.onerror = reject;
+      document.head.appendChild(script1);
+    });
+
+    firebaseApp = window.firebase.initializeApp(firebaseConfig);
+    firestore = firebaseApp.firestore();
+    return firestore;
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+    return null;
+  }
+};
+
+const fetchPotteryFromFirebase = async () => {
+  try {
+    const db = await initFirebase();
+    if (!db) throw new Error('Failed to initialize Firebase');
+    
+    const snapshot = await db.collection('pottery-image').get();
+    const items = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    console.log('Fetched pottery items:', items);
+    return items;
+  } catch (error) {
+    console.error('Error fetching pottery:', error);
+    throw error;
+  }
+};
+
+export default function PotteryGallery() {
+  const [pottery, setPottery] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCart, setShowCart] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadPottery = async () => {
+      try {
+        const items = await fetchPotteryFromFirebase();
+        if (items.length === 0) {
+          setError('No pottery items found in database');
+        } else {
+          setPottery(items);
+          setError(null);
+        }
+      } catch (err) {
+        setError(err.message);
+        console.error('Load error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadPottery();
+  }, []);
+
+  const addToCart = (item) => {
+    setCart([...cart, item]);
+  };
+
+  const removeFromCart = (itemId) => {
+    setCart(cart.filter(item => item.id !== itemId));
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-stone-600">Loading pottery from Firebase...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+    <div className="min-h-screen bg-stone-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-serif text-stone-800">Artisan Pottery</h1>
+          <button 
+            onClick={() => setShowCart(!showCart)}
+            className="relative p-2 hover:bg-stone-100 rounded-lg transition"
+          >
+            <ShoppingCart className="w-6 h-6 text-stone-700" />
+            {cart.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-stone-800 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                {cart.length}
+              </span>
+            )}
+          </button>
+        </div>
       </header>
+
+      {/* Cart Sidebar */}
+      {showCart && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-20" onClick={() => setShowCart(false)}>
+          <div 
+            className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl p-6 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-serif text-stone-800">Your Cart</h2>
+              <button onClick={() => setShowCart(false)}>
+                <X className="w-6 h-6 text-stone-600" />
+              </button>
+            </div>
+            
+            {cart.length === 0 ? (
+              <p className="text-stone-500">Your cart is empty</p>
+            ) : (
+              <>
+                <div className="space-y-4 mb-6">
+                  {cart.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3 pb-4 border-b">
+                      <img src={item.imageURL} alt={item.name} className="w-16 h-16 object-cover rounded" />
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-stone-800">{item.name}</h3>
+                        <p className="text-stone-600">${item.price}</p>
+                      </div>
+                      <button 
+                        onClick={() => removeFromCart(item.id)}
+                        className="text-stone-400 hover:text-stone-600"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="border-t pt-4 mb-4">
+                  <div className="flex justify-between text-lg font-medium">
+                    <span>Total:</span>
+                    <span>${cartTotal}</span>
+                  </div>
+                </div>
+                
+                <button className="w-full bg-stone-800 text-white py-3 rounded-lg hover:bg-stone-700 transition">
+                  Checkout
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-serif text-stone-800 mb-2">Handcrafted Pottery</h2>
+          <p className="text-stone-600">Each piece is uniquely made with care</p>
+        </div>
+
+        {/* Error/Empty State */}
+        {error && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
+            <h3 className="font-medium text-yellow-900 mb-2">⚠️ {error}</h3>
+            <p className="text-sm text-yellow-800">
+              Make sure you've added pottery items to your "pottery-image" collection in Firestore and published the security rules.
+            </p>
+          </div>
+        )}
+
+        {/* Gallery Grid */}
+        {pottery.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {pottery.map((item) => (
+              <div key={item.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
+                <div className="aspect-square overflow-hidden bg-stone-100">
+                  <img 
+                    src={item.imageURL} 
+                    alt={item.name}
+                    className="w-full h-full object-cover hover:scale-105 transition duration-300"
+                  />
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-medium text-stone-800 mb-1">{item.name}</h3>
+                  <p className="text-sm text-stone-600 mb-3">{item.description}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xl font-medium text-stone-800">${item.price}</span>
+                    {item.available ? (
+                      <button 
+                        onClick={() => addToCart(item)}
+                        className="bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 transition flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add to Cart
+                      </button>
+                    ) : (
+                      <span className="text-stone-400 text-sm">Sold Out</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : !error && (
+          <div className="text-center py-12 text-stone-500">
+            <p>No pottery items to display yet.</p>
+            <p className="text-sm mt-2">Add items to your Firestore database to see them here!</p>
+          </div>
+        )}
+      </main>
+
+      {/* Setup Instructions */}
+      <div className="max-w-7xl mx-auto px-4 py-8 mt-8 border-t">
+        <div className="bg-green-50 p-6 rounded-lg">
+          <h3 className="font-medium text-green-900 mb-3">✅ Firebase Connected!</h3>
+          <p className="text-sm text-green-800 mb-3">Your site is connected to Firebase. To see your pottery:</p>
+          <ol className="text-sm text-green-800 space-y-2 ml-4 list-decimal">
+            <li>Make sure your Firestore Rules allow reading:
+              <pre className="bg-green-100 p-2 rounded mt-1 text-xs overflow-x-auto">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /pottery-image/{document} {
+      allow read: if true;
+    }
+  }
+}`}
+              </pre>
+            </li>
+            <li>Check that your document in "pottery-image" has these exact field names:
+              <ul className="ml-4 mt-1 list-disc text-xs">
+                <li>name (string)</li>
+                <li>price (number)</li>
+                <li>description (string)</li>
+                <li>imageURL (string)</li>
+                <li>available (boolean)</li>
+              </ul>
+            </li>
+            <li>Open browser console (F12) to see any error messages</li>
+          </ol>
+        </div>
+      </div>
     </div>
   );
 }
-
-export default App;

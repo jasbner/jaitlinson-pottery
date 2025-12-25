@@ -19,7 +19,6 @@ const initFirebase = async () => {
   if (firebaseApp) return firestore;
   
   try {
-    // Load Firebase from Cloudflare CDN (allowed by CSP)
     await new Promise((resolve, reject) => {
       const script1 = document.createElement('script');
       script1.src = 'https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.min.js';
@@ -54,7 +53,6 @@ const fetchPotteryFromFirebase = async () => {
       ...doc.data()
     }));
     
-    console.log('Fetched pottery items:', items);
     return items;
   } catch (error) {
     console.error('Error fetching pottery:', error);
@@ -67,20 +65,13 @@ export default function PotteryGallery() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCart, setShowCart] = useState(false);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     const loadPottery = async () => {
       try {
         const items = await fetchPotteryFromFirebase();
-        if (items.length === 0) {
-          setError('No pottery items found in database');
-        } else {
-          setPottery(items);
-          setError(null);
-        }
+        setPottery(items);
       } catch (err) {
-        setError(err.message);
         console.error('Load error:', err);
       } finally {
         setLoading(false);
@@ -102,25 +93,27 @@ export default function PotteryGallery() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <div className="text-stone-600">Loading pottery from Firebase...</div>
+      <div className="min-h-screen bg-gradient-to-br from-stone-50 via-amber-50 to-stone-100 flex items-center justify-center">
+        <div className="text-stone-600 text-lg">Loading pottery...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-amber-50 to-stone-100">
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-serif text-stone-800">Artisan Pottery</h1>
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-serif text-stone-900 tracking-tight">Jaitlinson Pottery</h1>
+          </div>
           <button 
             onClick={() => setShowCart(!showCart)}
-            className="relative p-2 hover:bg-stone-100 rounded-lg transition"
+            className="relative p-3 hover:bg-stone-100/70 rounded-full transition-all duration-200 group"
           >
-            <ShoppingCart className="w-6 h-6 text-stone-700" />
+            <ShoppingCart className="w-6 h-6 text-stone-700 group-hover:text-stone-900 transition-colors" />
             {cart.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-stone-800 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 bg-amber-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-medium shadow-lg">
                 {cart.length}
               </span>
             )}
@@ -130,145 +123,110 @@ export default function PotteryGallery() {
 
       {/* Cart Sidebar */}
       {showCart && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 z-20" onClick={() => setShowCart(false)}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 transition-opacity" onClick={() => setShowCart(false)}>
           <div 
-            className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl p-6 overflow-y-auto"
+            className="absolute right-0 top-0 h-full w-96 bg-white shadow-2xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-serif text-stone-800">Your Cart</h2>
-              <button onClick={() => setShowCart(false)}>
-                <X className="w-6 h-6 text-stone-600" />
+            <div className="sticky top-0 bg-white border-b border-stone-200 p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-serif text-stone-900">Your Cart</h2>
+              <button 
+                onClick={() => setShowCart(false)}
+                className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-stone-600" />
               </button>
             </div>
             
-            {cart.length === 0 ? (
-              <p className="text-stone-500">Your cart is empty</p>
-            ) : (
-              <>
-                <div className="space-y-4 mb-6">
-                  {cart.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3 pb-4 border-b">
-                      <img src={item.imageURL} alt={item.name} className="w-16 h-16 object-cover rounded" />
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-stone-800">{item.name}</h3>
-                        <p className="text-stone-600">${item.price}</p>
+            <div className="p-6">
+              {cart.length === 0 ? (
+                <div className="text-center py-12">
+                  <ShoppingCart className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                  <p className="text-stone-500 text-lg">Your cart is empty</p>
+                  <p className="text-stone-400 text-sm mt-2">Add some beautiful pottery to get started</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-4 mb-6">
+                    {cart.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-4 pb-4 border-b border-stone-200 group">
+                        <img src={item.imageURL} alt={item.name} className="w-20 h-20 object-cover rounded-lg shadow-sm" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-stone-900 truncate">{item.name}</h3>
+                          <p className="text-amber-700 font-medium mt-1">${item.price}</p>
+                        </div>
+                        <button 
+                          onClick={() => removeFromCart(item.id)}
+                          className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-stone-400 hover:text-stone-600"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="border-t pt-4 mb-4">
-                  <div className="flex justify-between text-lg font-medium">
-                    <span>Total:</span>
-                    <span>${cartTotal}</span>
+                    ))}
                   </div>
-                </div>
-                
-                <button className="w-full bg-stone-800 text-white py-3 rounded-lg hover:bg-stone-700 transition">
-                  Checkout
-                </button>
-              </>
-            )}
+                  
+                  <div className="border-t border-stone-200 pt-4 mb-6">
+                    <div className="flex justify-between text-xl font-serif">
+                      <span className="text-stone-700">Total:</span>
+                      <span className="text-stone-900 font-medium">${cartTotal}</span>
+                    </div>
+                  </div>
+                  
+                  <button className="w-full bg-gradient-to-r from-amber-600 to-amber-700 text-white py-4 rounded-xl hover:from-amber-700 hover:to-amber-800 transition-all shadow-lg hover:shadow-xl font-medium">
+                    Proceed to Checkout
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-serif text-stone-800 mb-2">Handcrafted Pottery</h2>
-          <p className="text-stone-600">Each piece is uniquely made with care</p>
-        </div>
-
-        {/* Error/Empty State */}
-        {error && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-            <h3 className="font-medium text-yellow-900 mb-2">⚠️ {error}</h3>
-            <p className="text-sm text-yellow-800">
-              Make sure you've added pottery items to your "pottery-image" collection in Firestore and published the security rules.
-            </p>
-          </div>
-        )}
-
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Gallery Grid */}
         {pottery.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {pottery.map((item) => (
-              <div key={item.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition">
-                <div className="aspect-square overflow-hidden bg-stone-100">
+              <div key={item.id} className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 group">
+                <div className="aspect-square overflow-hidden bg-gradient-to-br from-stone-100 to-amber-50">
                   <img 
                     src={item.imageURL} 
                     alt={item.name}
-                    className="w-full h-full object-cover hover:scale-105 transition duration-300"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
                 </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-medium text-stone-800 mb-1">{item.name}</h3>
-                  <p className="text-sm text-stone-600 mb-3">{item.description}</p>
+                <div className="p-6">
+                  <h3 className="text-xl font-serif text-stone-900 mb-2">{item.name}</h3>
+                  <p className="text-sm text-stone-600 mb-4 line-clamp-2">{item.description}</p>
                   <div className="flex justify-between items-center">
-                    <span className="text-xl font-medium text-stone-800">${item.price}</span>
+                    <span className="text-2xl font-serif text-amber-700">${item.price}</span>
                     {item.available ? (
                       <button 
                         onClick={() => addToCart(item)}
-                        className="bg-stone-800 text-white px-4 py-2 rounded-lg hover:bg-stone-700 transition flex items-center gap-2"
+                        className="bg-gradient-to-r from-stone-800 to-stone-900 text-white px-5 py-2.5 rounded-xl hover:from-stone-900 hover:to-black transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-medium"
                       >
                         <Plus className="w-4 h-4" />
                         Add to Cart
                       </button>
                     ) : (
-                      <span className="text-stone-400 text-sm">Sold Out</span>
+                      <span className="text-stone-400 text-sm font-medium bg-stone-100 px-4 py-2 rounded-lg">Sold Out</span>
                     )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        ) : !error && (
-          <div className="text-center py-12 text-stone-500">
-            <p>No pottery items to display yet.</p>
-            <p className="text-sm mt-2">Add items to your Firestore database to see them here!</p>
+        ) : (
+          <div className="text-center py-20">
+            <div className="w-24 h-24 bg-stone-200 rounded-full mx-auto mb-6 flex items-center justify-center">
+              <ShoppingCart className="w-12 h-12 text-stone-400" />
+            </div>
+            <p className="text-stone-500 text-xl">No pottery items to display yet.</p>
+            <p className="text-stone-400 mt-2">Check back soon for new pieces!</p>
           </div>
         )}
       </main>
-
-      {/* Setup Instructions */}
-      <div className="max-w-7xl mx-auto px-4 py-8 mt-8 border-t">
-        <div className="bg-green-50 p-6 rounded-lg">
-          <h3 className="font-medium text-green-900 mb-3">✅ Firebase Connected!</h3>
-          <p className="text-sm text-green-800 mb-3">Your site is connected to Firebase. To see your pottery:</p>
-          <ol className="text-sm text-green-800 space-y-2 ml-4 list-decimal">
-            <li>Make sure your Firestore Rules allow reading:
-              <pre className="bg-green-100 p-2 rounded mt-1 text-xs overflow-x-auto">
-{`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /pottery-image/{document} {
-      allow read: if true;
-    }
-  }
-}`}
-              </pre>
-            </li>
-            <li>Check that your document in "pottery-image" has these exact field names:
-              <ul className="ml-4 mt-1 list-disc text-xs">
-                <li>name (string)</li>
-                <li>price (number)</li>
-                <li>description (string)</li>
-                <li>imageURL (string)</li>
-                <li>available (boolean)</li>
-              </ul>
-            </li>
-            <li>Open browser console (F12) to see any error messages</li>
-          </ol>
-        </div>
-      </div>
     </div>
   );
 }
